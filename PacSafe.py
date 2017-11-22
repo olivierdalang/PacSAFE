@@ -30,11 +30,13 @@ from PyQt4.QtGui import *
 import os, sys
 import urllib2, webbrowser, traceback
 
+from qgis.core import QgsMessageLog
 
 # Initialize Qt resources from file resources.py
 
 # Import the code for the dialog
 from PacSafe_dialog import PacSafeDialog
+from Pacsafe_layout_prompt import PacSafeLayoutPrompt
 import os.path
 import os
 #import safe.gui.widgets.dock
@@ -358,8 +360,29 @@ class PacSafe:
             text=self.tr(u'PacSafe'),
             callback=self.run,
             parent=self.iface.mainWindow())
+        self.add_action(
+            icon_path,
+            text=self.tr(u'Simplify UI'),
+            callback=self.simplifyUI,
+            parent=self.iface.mainWindow())
+        self.add_action(
+            icon_path,
+            text=self.tr(u'Default UI'),
+            callback=self.defaultUI,
+            parent=self.iface.mainWindow())
 
-
+        if QSettings().value('PacSafe/skip_ui_prompt',False):
+            result = self.dlg.exec_()
+            # See if OK was pressed
+            if result:
+                # Do something useful here - delete the line containing pass and
+                # substitute with your code.
+                pass
+        
+        reply = QMessageBox.question(self.iface.mainWindow(), "Simplify UI", "It looks like you are running PacSafe for the first time. Do you want to load the simplified layout ? (relaunch required)", QMessageBox.Yes|QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            self.simplifyUI
+            
 
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
@@ -383,3 +406,28 @@ class PacSafe:
             # Do something useful here - delete the line containing pass and
             # substitute with your code.
             pass
+
+    def _promptRelaunch(self):
+        
+        reply = QMessageBox.question(self.iface.mainWindow(), "Relaunch QGIS", "To apply changes, you need to relaunch QGIS. You can revert to normal layout in PacSafe's menu. Do you want to relaunch QGIS now ?", QMessageBox.Yes|QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            self.iface.actionExit().trigger()
+            os.startfile(path)
+
+    def simplifyUI(self):
+        customsett = QSettings( "QGIS", "QGISCUSTOMIZATION2" )
+        file = open( os.path.join(self.plugin_dir,'QGISCUSTOMIZATION2.conf'))
+        for line in file.read().splitlines():
+            try:
+                path, value = line.split('=')
+                path = 'Customization/' + path
+                path = path.replace('\\','/')
+                customsett.setValue(path, value)
+            except Exception as e:
+                QgsMessageLog.logMessage('Could not read line '+line, 'PacSafe', QgsMessageLog.INFO)
+        self._promptRelaunch()
+                
+    def defaultUI(self):
+        customsett = QSettings( "QGIS", "QGISCUSTOMIZATION2" )
+        customsett.remove('Customization')
+        self._promptRelaunch()
